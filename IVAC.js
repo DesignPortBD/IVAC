@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         4+1 FARABI jallal with OTP Timers
+// @name         1+4 Prosen SOHIDUL with OTP Timers
 // @namespace    http://tampermonkey.net/
-// @version      15.0.11.06.25.2
+// @version      15.0.11.06.25.3
 // @description  Easy Payment All info submission,OTP verification, payment Done with OTP timers
 // @match        https://payment.ivacbd.com/*
 // @grant        none
@@ -48,8 +48,149 @@
     }
 
     const CONFIG = window.IVAC_CONFIG;
-    // Only keep the configured number of family members
     CONFIG.personal.familyMembers = CONFIG.personal.familyMembers.slice(0, parseInt(CONFIG.application.familyCount));
+
+    // ======== ENHANCED CSRF TOKEN HANDLING ========
+    let csrfToken = null;
+    const csrfTokenObserver = new MutationObserver(() => {
+        updateCsrfToken();
+    });
+
+    function updateCsrfToken() {
+        // Try multiple methods to get CSRF token
+        const tokenFromMeta = document.querySelector("meta[name='csrf-token']")?.content;
+        const tokenFromInput = document.querySelector("input[name='_token']")?.value;
+        
+        if (tokenFromMeta) {
+            csrfToken = tokenFromMeta;
+        } else if (tokenFromInput) {
+            csrfToken = tokenFromInput;
+        } else {
+            // Parse scripts for CSRF token
+            const scripts = document.querySelectorAll('script');
+            for (let script of scripts) {
+                const match = script.textContent.match(/var\s+csrf_token\s*=\s*["']([^"']+)["']/);
+                if (match && match[1]) {
+                    csrfToken = match[1];
+                    break;
+                }
+            }
+        }
+        
+        if (csrfToken) {
+            console.log('CSRF token updated:', csrfToken);
+        }
+    }
+
+    // Start observing for CSRF token changes
+    csrfTokenObserver.observe(document.head, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['content']
+    });
+
+    // ======== ENHANCED FETCH INTERCEPTION ========
+    const originalFetch = window.fetch;
+    window.fetch = async function(input, init = {}) {
+        // Ensure we're dealing with IVAC payment requests
+        if (typeof input === 'string' && input.includes('payment.ivacbd.com')) {
+            // Update token before each request
+            updateCsrfToken();
+            
+            if (!csrfToken) {
+                console.error('CSRF token not available for request:', input);
+                return Promise.reject('CSRF token not available');
+            }
+
+            // Prepare headers
+            const headers = new Headers(init.headers || {});
+            if (!headers.has('Content-Type')) {
+                headers.set('Content-Type', 'application/x-www-form-urlencoded');
+            }
+            if (!headers.has('X-Requested-With')) {
+                headers.set('X-Requested-With', 'XMLHttpRequest');
+            }
+
+            // Prepare body with CSRF token
+            let body = init.body;
+            if (body && typeof body === 'string' && body.includes('_token=')) {
+                // Update existing token in body
+                body = body.replace(/_token=[^&]*/, `_token=${encodeURIComponent(csrfToken)}`);
+            } else if (body && typeof body === 'string') {
+                // Add token if not present
+                body += `&_token=${encodeURIComponent(csrfToken)}`;
+            } else if (body instanceof URLSearchParams) {
+                // Handle URLSearchParams
+                body.set('_token', csrfToken);
+            } else if (body && typeof body === 'object' && !(body instanceof FormData)) {
+                // Handle plain objects
+                body._token = csrfToken;
+            }
+
+            // Clone and modify init
+            const newInit = {
+                ...init,
+                headers,
+                body: body || new URLSearchParams({_token: csrfToken}).toString()
+            };
+
+            console.log('Making request with CSRF token:', {
+                url: input,
+                token: csrfToken
+            });
+
+            return originalFetch(input, newInit).catch(error => {
+                console.error('Request failed:', error);
+                throw error;
+            });
+        }
+        return originalFetch(input, init);
+    };
+
+    // ======== ENHANCED XHR INTERCEPTION ========
+    const OriginalXHR = window.XMLHttpRequest;
+    window.XMLHttpRequest = class InterceptedXHR extends OriginalXHR {
+        open(method, url) {
+            if (url.includes('payment.ivacbd.com')) {
+                this.addEventListener('loadstart', () => {
+                    updateCsrfToken();
+                    if (!csrfToken) {
+                        console.error('CSRF token not available for XHR request:', url);
+                        return;
+                    }
+                });
+
+                const originalSend = this.send;
+                this.send = function(body) {
+                    // Modify body to include CSRF token
+                    if (body) {
+                        if (typeof body === 'string' && body.includes('_token=')) {
+                            body = body.replace(/_token=[^&]*/, `_token=${encodeURIComponent(csrfToken)}`);
+                        } else if (typeof body === 'string') {
+                            body += `&_token=${encodeURIComponent(csrfToken)}`;
+                        } else if (body instanceof URLSearchParams) {
+                            body.set('_token', csrfToken);
+                        }
+                    }
+
+                    // Set headers
+                    this.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+                    if (!this.getRequestHeader('Content-Type')) {
+                        this.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    }
+
+                    console.log('XHR request with CSRF token:', {
+                        url,
+                        token: csrfToken
+                    });
+
+                    originalSend.call(this, body);
+                };
+            }
+            super.open(method, url);
+        }
+    };
 
     // API Endpoints
     const API_URLS = {
@@ -66,7 +207,6 @@
 
     // Global State
     let globalStop = false;
-    let csrfToken = null;
     let statusMessageEl = null;
     let activeRequests = [];
     let selectedDate = CONFIG.defaultDate;
@@ -101,7 +241,7 @@
 
     // ======== TIMER FUNCTIONS ========
     function startSendOtpTimer() {
-        let timeLeft = 600; // 3 minutes in seconds
+        let timeLeft = 600;
         clearInterval(otpSendTimer);
 
         const originalText = sendOtpButton.textContent;
@@ -122,7 +262,7 @@
     }
 
     function startVerifyTimer() {
-        let timeLeft = 420; // 10 minutes in seconds
+        let timeLeft = 420;
         clearInterval(otpVerifyTimer);
 
         const originalText = verifyButton.textContent;
@@ -142,40 +282,7 @@
         }, 1000);
     }
 
-    // ======== ENHANCED FETCH INTERCEPTION ========
-    const originalFetch = window.fetch;
-    window.fetch = function(input, init = {}) {
-        const controller = new AbortController();
-        requestControllers.add(controller);
-
-        if (init.signal) {
-            init.signal.addEventListener('abort', () => controller.abort());
-        }
-
-        const newInit = {
-            ...init,
-            signal: controller.signal
-        };
-
-        const cleanup = () => requestControllers.delete(controller);
-        return originalFetch(input, newInit).finally(cleanup);
-    };
-
-    // ======== COMPLETE XHR INTERCEPTION ========
-    const OriginalXHR = window.XMLHttpRequest;
-    window.XMLHttpRequest = class InterceptedXHR extends OriginalXHR {
-        constructor() {
-            super();
-            activeXHRs.add(this);
-            this.addEventListener('readystatechange', () => {
-                if (this.readyState === 4) {
-                    activeXHRs.delete(this);
-                }
-            });
-        }
-    };
-
-    // Helper Functions
+    // ======== HELPER FUNCTIONS ========
     function logInfo(msg) {
         if (statusMessageEl) {
             statusMessageEl.textContent = msg;
@@ -197,7 +304,6 @@
             statusMessageEl.style.color = "#00C851";
         }
 
-        // Start timers based on success messages
         if (msg.includes("OTP sent successfully")) {
             startSendOtpTimer();
         } else if (msg.includes("OTP verified successfully")) {
@@ -205,17 +311,23 @@
         }
     }
 
-    function retrieveCsrfToken() {
-        const scripts = document.querySelectorAll('script');
-        for (let script of scripts) {
-            const match = script.innerHTML.match(/var csrf_token = "(.*?)"/);
-            if (match && match[1]) {
-                return match[1];
-            }
-        }
+    function initializeHashParam() {
+        hashParam = getHashParam();
+        if (!hashObserver) {
+            hashObserver = new MutationObserver(() => {
+                const newHash = getHashParam();
+                if (newHash && newHash !== hashParam) {
+                    hashParam = newHash;
+                    logInfo("Hash parameter updated dynamically");
+                }
+            });
 
-        const meta = document.querySelector("meta[name='csrf-token']");
-        return meta?.content || document.querySelector("input[name='_token']")?.value || null;
+            hashObserver.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true
+            });
+        }
     }
 
     function getHashParam() {
@@ -244,106 +356,7 @@
         return null;
     }
 
-    function initializeHashParam() {
-        hashParam = getHashParam();
-        if (!hashObserver) {
-            hashObserver = new MutationObserver(() => {
-                const newHash = getHashParam();
-                if (newHash && newHash !== hashParam) {
-                    hashParam = newHash;
-                    logInfo("Hash parameter updated dynamically");
-                }
-            });
-
-            hashObserver.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true
-            });
-        }
-    }
-
-    async function sendPostRequest(url, data) {
-        if (!csrfToken) {
-            csrfToken = retrieveCsrfToken();
-            if (!csrfToken) {
-                logError("CSRF token not found");
-                return null;
-            }
-        }
-
-        data._token = csrfToken;
-        const controller = new AbortController();
-        activeRequests.push(controller);
-        requestControllers.add(controller);
-
-        try {
-            const response = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "X-Requested-With": "XMLHttpRequest"
-                },
-                body: new URLSearchParams(data),
-                signal: controller.signal,
-                redirect: 'manual'
-            });
-
-            if (response.redirected || response.status === 302) {
-                return { success: true, redirected: true };
-            }
-
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-            const text = await response.text();
-            try {
-                const jsonResponse = JSON.parse(text);
-
-                if (url.includes('pay-otp-sent')) {
-                    console.log('%cOTP Send Response:', 'color: #4CAF50; font-weight: bold', {
-                        message: jsonResponse.message
-                    });
-                } else if (url.includes('pay-otp-verify')) {
-                    console.log('%cSuccess:', 'color: #2196F3; font-weight: bold', jsonResponse.success);
-                    console.log('%cMessage:', 'color: #FF9800; font-weight: bold', jsonResponse.message);
-                    console.log('%cStatus:', 'color: #9C27B0; font-weight: bold', jsonResponse.data?.status);
-                    console.log('%cSlot Dates:', 'color: #607D8B; font-weight: bold', jsonResponse.data?.slot_dates);
-                } else if (url.includes('pay-slot-time')) {
-                    console.log('%cSuccess:', 'color: #2196F3; font-weight: bold', jsonResponse.success);
-                    console.log('%cMessage:', 'color: #FF9800; font-weight: bold', jsonResponse.message);
-                    jsonResponse.data?.slot_times?.forEach((slot, index) => {
-                        console.log('%cDate:', 'color: #009688; font-weight: bold', slot.date);
-                        console.log('%cTime Display:', 'color: #ecf01a; font-weight: bold', slot.time_display);
-                        console.log('%cAvailable Slots:', 'color: #23f5fc; font-weight: bold', slot.availableSlot);
-                        console.log('%cHour:', 'color: #FF5722; font-weight: bold', slot.hour);
-                    });
-                } else if (url.includes('paynow')) {
-                    console.log('%cPayNow Response:', 'color: #4CAF50; font-weight: bold', {
-                        message: jsonResponse.message,
-                        success: jsonResponse.success,
-                        url: jsonResponse.url
-                    });
-                } else {
-                    console.log('%cAPI Response:', 'color: #E91E63; font-weight: bold', jsonResponse);
-                }
-
-                return jsonResponse;
-            } catch (e) {
-                return { success: true, redirected: false };
-            }
-
-        } catch (err) {
-            if (err.name !== "AbortError") {
-                logError(`Request failed`);
-            }
-            return null;
-        } finally {
-            activeRequests = activeRequests.filter(req => req !== controller);
-            requestControllers.delete(controller);
-        }
-    }
-
-    // ======== UPDATED CAPTCHA SOLVER FUNCTIONS ========
+    // ======== CAPTCHA FUNCTIONS ========
     async function solveCaptcha() {
         if (!CONFIG.captcha.enabled) return;
         if (captchaSolving) return;
@@ -434,7 +447,6 @@
         });
     }
 
-    // ======== RECAPTCHA LOADER ========
     function loadRecaptcha() {
         if (isRecaptchaLoaded) {
             grecaptcha.reset(recaptchaWidgetId);
@@ -517,11 +529,10 @@
         }
     }
 
-    // ======== PAY NOW HANDLER ========
+    // ======== PAYMENT FUNCTIONS ========
     async function handlePayNow() {
         if (isParallelClickActive && currentParallelButton?.textContent === "Pay Now") {
-            // Skip if already in parallel mode
-            ;
+            return;
         }
 
         logInfo("Processing payment...");
@@ -585,25 +596,33 @@
                 logError(result?.message || "Payment failed");
             }
         } catch (error) {
-         /*   logError(`Payment error: ${error.message}`); */
+            logError(`Payment error: ${error.message}`);
         }
     }
 
-    // OTP Functions
+    // ======== OTP FUNCTIONS ========
     async function sendOtp(resend = false) {
         logInfo(resend ? "Resending OTP..." : "Sending OTP...");
 
         try {
-            const result = await sendPostRequest(API_URLS.sendOtp, {
-                _token: csrfToken,
-                resend: resend ? 1 : 0
+            const result = await fetch(API_URLS.sendOtp, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                body: new URLSearchParams({
+                    _token: csrfToken,
+                    resend: resend ? 1 : 0
+                })
             });
 
-            if (result?.success) {
+            const data = await result.json();
+            if (data?.success) {
                 logSuccess(`✅ OTP ${resend ? 're' : ''}sent successfully`);
                 return true;
             } else {
-                const errorMsg = result?.message || 'Unknown error';
+                const errorMsg = data?.message || 'Unknown error';
                 logError(`Failed to ${resend ? 're' : ''}send OTP: ${errorMsg}`);
                 return false;
             }
@@ -621,13 +640,25 @@
         }
 
         logInfo("Verifying OTP...");
-        const result = await sendPostRequest(API_URLS.verifyOtp, { otp });
-        if (result?.success) {
+        const result = await fetch(API_URLS.verifyOtp, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: new URLSearchParams({
+                _token: csrfToken,
+                otp: otp
+            })
+        });
+
+        const data = await result.json();
+        if (data?.success) {
             isOtpVerified = true;
             logSuccess("✅ OTP verified successfully!");
-            hashParam = result.data?.hash_param || getHashParam();
-            updateDatePicker(result.data?.slot_dates || []);
-        } else if (result) {
+            hashParam = data.data?.hash_param || getHashParam();
+            updateDatePicker(data.data?.slot_dates || []);
+        } else if (data) {
             logError("✗ Invalid OTP");
         }
     }
@@ -639,42 +670,62 @@
         }
 
         logInfo(`Fetching slots for ${selectedDate}...`);
-        const result = await sendPostRequest(API_URLS.slotTime, { appointment_date: selectedDate });
-        if (result?.success) {
+        const result = await fetch(API_URLS.slotTime, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: new URLSearchParams({
+                _token: csrfToken,
+                appointment_date: selectedDate
+            })
+        });
+
+        const data = await result.json();
+        if (data?.success) {
             logSuccess("✓ Slots load successfully!");
-            updateTimeDropdown(result.data?.slot_times || []);
+            updateTimeDropdown(data.data?.slot_times || []);
             loadRecaptcha();
-        } else if (result) {
+        } else if (data) {
             logError("Failed to load slots");
         }
     }
 
-    // Application Info Functions
+    // ======== APPLICATION FUNCTIONS ========
     async function submitApplicationInfo() {
         logInfo("Submitting application info...");
-        const result = await sendPostRequest(API_URLS.applicationInfo, {
-            highcom: CONFIG.application.highcom,
-            webfile_id: CONFIG.application.webFileId,
-            webfile_id_repeat: CONFIG.application.webFileId,
-            ivac_id: CONFIG.application.ivacId,
-            visa_type: CONFIG.application.visaType,
-            family_count: CONFIG.application.familyCount,
-            visit_purpose: CONFIG.application.visitPurpose
+        const result = await fetch(API_URLS.applicationInfo, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: new URLSearchParams({
+                _token: csrfToken,
+                highcom: CONFIG.application.highcom,
+                webfile_id: CONFIG.application.webFileId,
+                webfile_id_repeat: CONFIG.application.webFileId,
+                ivac_id: CONFIG.application.ivacId,
+                visa_type: CONFIG.application.visaType,
+                family_count: CONFIG.application.familyCount,
+                visit_purpose: CONFIG.application.visitPurpose
+            })
         });
 
-        if (result?.success) {
-            if (result.redirected) {
+        const data = await result.json();
+        if (data?.success) {
+            if (data.redirected) {
                 console.log("✅ Application info Successful!");
                 logSuccess("✓ Application info submitted");
             } else {
                 logSuccess("✓ Application info submitted");
             }
-        } else if (result) {
+        } else if (data) {
             logError("Application submission failed");
         }
     }
 
-    // Personal Info Functions
     async function submitPersonalInfo() {
         logInfo("Submitting personal info...");
         const formData = {
@@ -696,40 +747,61 @@
             }
         }
 
-        const result = await sendPostRequest(API_URLS.personalInfo, formData);
-        if (result?.success) {
-            if (result.redirected) {
+        const result = await fetch(API_URLS.personalInfo, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: new URLSearchParams({
+                _token: csrfToken,
+                ...formData
+            })
+        });
+
+        const data = await result.json();
+        if (data?.success) {
+            if (data.redirected) {
                 console.log("✅ Personal Info Successful!");
                 logSuccess("✓ Personal info submitted");
             } else {
                 logSuccess("✓ Personal info submitted");
             }
-        } else if (result) {
+        } else if (data) {
             logError("Personal submission failed");
         }
     }
 
-    // Payment Submit Function
     async function submitPayment() {
         logInfo("Initiating payment...");
-        const result = await sendPostRequest(API_URLS.paymentSubmit, {});
+        const result = await fetch(API_URLS.paymentSubmit, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: new URLSearchParams({
+                _token: csrfToken
+            })
+        });
 
-        if (result?.success) {
-            if (result.redirected) {
+        const data = await result.json();
+        if (data?.success) {
+            if (data.redirected) {
                 console.log("✅ Payment Successful!");
                 logSuccess("✓ Payment initiated");
             } else {
                 logSuccess("✓ Payment initiated");
             }
-            if (result.data?.redirect_url) {
-                window.open(result.data.redirect_url, '_blank');
+            if (data.data?.redirect_url) {
+                window.open(data.data.redirect_url, '_blank');
             }
-        } else if (result) {
+        } else if (data) {
             logError("Payment initiation failed");
         }
     }
 
-    // Time Injector Function
+    // ======== UI FUNCTIONS ========
     function injectTimeSlots() {
         let timeDropdown = document.getElementById('appointment_time');
         if (!timeDropdown) {
@@ -750,7 +822,6 @@
         }
     }
 
-    // UI Update Functions
     function updateDatePicker(dates) {
         const dateInput = document.getElementById("ivac-date-input");
         if (!dateInput) return;
@@ -798,7 +869,6 @@
         };
     }
 
-    // UI Components
     function createButton(text, onClick, color, hoverColor, width = 'auto') {
         const btn = document.createElement("button");
         btn.textContent = text;
@@ -979,7 +1049,6 @@
         return panel;
     }
 
-    // Draggable Panel Functionality
     function makeDraggable(panel, header) {
         header.style.cursor = 'move';
 
@@ -1007,7 +1076,6 @@
         });
     }
 
-    // Parallel Click Functions
     function setupParallelClick(button, clickHandler) {
         if (button.textContent === "Cancel") {
             return;
@@ -1066,7 +1134,6 @@
         }
     }
 
-    // Request Cancellation Function
     function cancelAllRequests() {
         const originalMessage = statusMessageEl.textContent;
         statusMessageEl.textContent = "Canceling all requests...";
@@ -1248,7 +1315,7 @@
             document.head.appendChild(fontStyle);
         }
 
-        csrfToken = retrieveCsrfToken();
+        updateCsrfToken();
         initializeHashParam();
         createTopRightUI();
         logInfo(csrfToken ? "I AM READY TO BOOK SLOTS" : "CSRF auto-detected");
