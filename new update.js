@@ -1591,7 +1591,7 @@ window.addEventListener('load', function () {
     }
 
     function setupRequestInterception() {
-    /*    console.log('IVAC Payment Helper installed'); */
+
 
         // Intercept XHR requests
         const originalXHROpen = XMLHttpRequest.prototype.open;
