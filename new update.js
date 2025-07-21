@@ -1,71 +1,48 @@
 // ==UserScript==
 // @name         4+1 FARABI jallal with OTP Timers
 // @namespace    http://tampermonkey.net/
-// @version      15.0.11.06.25.2
+// @version      15.0.11.06.25.3
 // @description  Easy Payment All info submission,OTP verification, payment Done with OTP timers
 // @match        https://payment.ivacbd.com/*
 // @grant        none
 // @run-at       document-start
-// @match        *://*.ivacbd.com/*
 // @author       Sudiptta Apu
-// @run-at       document-end
 // ==/UserScript==
 
 (function () {
     "use strict";
 
-    // CONFIGURATION SECTION - ONLY CHANGE DATES HERE
-    const CONFIG = {
-        // Default appointment date (only change here)
-        defaultDate: "2025-07-22",
-
-        // Application Information
+    // Get configuration from loader or use defaults
+    const CONFIG = window.IVAC_CONFIG || {
+        defaultDate: new Date().toISOString().split('T')[0],
         application: {
             highcom: "1",
             webFileId: "BGDDV53D7A25",
             ivacId: "17",
             visaType: "13",
-            familyCount: "4", // Change this number to adjust family members
+            familyCount: "4",
             visitPurpose: "PURPOSE FOR BETTER TREATMENT"
         },
-
-        // Personal Information
         personal: {
             fullName: "MD HARUN OR RASHID",
-            email: "sudiptta.sm@gmail.com", // 112233
+            email: "sudiptta.sm@gmail.com",
             phone: "01577155550",
-
-            // Family Members (will be automatically adjusted based on familyCount)
             familyMembers: [
-                {
-                    name: "MD JOBAID MIAH",
-                    webFileNo: "BGDDV53D9425"
-                },
-                {
-                    name: "MUSA MIAH",
-                    webFileNo: "BGDDV50C6025"
-                },
-                {
-                    name: "MD MOTALEB HOSSAIN",
-                    webFileNo: "BGDDV50C9425"
-                },
-                {
-                    name: "RAKIB HALDER",
-                    webFileNo: "BGDDV53E3F25"
-                }
+                { name: "MD JOBAID MIAH", webFileNo: "BGDDV53D9425" },
+                { name: "MUSA MIAH", webFileNo: "BGDDV50C6025" },
+                { name: "MD MOTALEB HOSSAIN", webFileNo: "BGDDV50C9425" },
+                { name: "RAKIB HALDER", webFileNo: "BGDDV53E3F25" }
             ]
         },
-
-        // CAPTCHA Solver Configuration
         captcha: {
-            enabled: true, // Set to false to disable auto-solving
+            enabled: true,
             clientKey: "CAP-923EF9B1103A2E23E1E8EF772B2147B57561DFFFBF3B27D41DB24283CF19EB5E",
             siteKey: "6LdOCpAqAAAAAOLNB3Vwt_H7Nw4GGCAbdYm5Brsb",
             websiteURL: "https://payment.ivacbd.com/"
         }
     };
 
-    // Only keep the configured number of family members
+    // Ensure family members array matches familyCount
     CONFIG.personal.familyMembers = CONFIG.personal.familyMembers.slice(0, parseInt(CONFIG.application.familyCount));
 
     // API Endpoints
@@ -1254,17 +1231,9 @@
         }
     }
 
-    // Initialize
-    window.addEventListener("load", () => {
-        if (!document.querySelector('style[data-injected-font]')) {
-            const fontStyle = document.createElement('style');
-            fontStyle.setAttribute('data-injected-font', 'true');
-            fontStyle.textContent = `
-                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-            `;
-            document.head.appendChild(fontStyle);
-        }
-
+    // Initialize when page loads
+    window.addEventListener("load", function() {
+        // Your existing initialization code
         csrfToken = retrieveCsrfToken();
         initializeHashParam();
         createTopRightUI();
