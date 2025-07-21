@@ -529,8 +529,8 @@
         }
     }
 
-    // ======== PAYMENT FUNCTIONS ========
-async function handlePayNow() {
+    // ======== PAY NOW HANDLER ========
+    async function handlePayNow() {
         if (isParallelClickActive && currentParallelButton?.textContent === "Pay Now") {
             // Skip if already in parallel mode
             ;
@@ -597,7 +597,7 @@ async function handlePayNow() {
                 logError(result?.message || "Payment failed");
             }
         } catch (error) {
-            logError(`Payment error: ${error.message}`);
+         /*   logError(`Payment error: ${error.message}`); */
         }
     }
 
@@ -1077,7 +1077,7 @@ async function handlePayNow() {
         });
     }
 
-    // Parallel Click Functions
+     // Parallel Click Functions
     function setupParallelClick(button, clickHandler) {
         if (button.textContent === "Cancel") {
             return;
@@ -1136,6 +1136,7 @@ async function handlePayNow() {
         }
     }
 
+    // Request Cancellation Function
     function cancelAllRequests() {
         const originalMessage = statusMessageEl.textContent;
         statusMessageEl.textContent = "Canceling all requests...";
@@ -1159,6 +1160,7 @@ async function handlePayNow() {
             }, 2000);
         }, 300);
     }
+
 
     function createTopRightUI() {
         const mainContainer = document.createElement("div");
