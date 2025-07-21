@@ -14,57 +14,40 @@
 (function () {
     "use strict";
 
-    // CONFIGURATION SECTION - ONLY CHANGE DATES HERE
-    const CONFIG = {
-        // Default appointment date (only change here)
-        defaultDate: "2025-07-22",
+    // Configuration will be injected by the loader
+    if (typeof window.IVAC_CONFIG === 'undefined') {
+        window.IVAC_CONFIG = {
+            // Default fallback configuration if loader fails
+            defaultDate: "2025-07-22",
+            application: {
+                highcom: "1",
+                webFileId: "BGDDV57F9125",
+                ivacId: "17",
+                visaType: "13",
+                familyCount: "4",
+                visitPurpose: "PURPOSE FOR BETTER TREATMENT"
+            },
+            personal: {
+                fullName: "ASIKUZZAMA",
+                email: "asikuzzama@gmail.com",
+                phone: "01622427447",
+                familyMembers: [
+                    { name: "USHA RANI BISWAS", webFileNo: "BGDDV56B4625" },
+                    { name: "RANJIT KUMAR BISWAS", webFileNo: "BGDDV56B6525" },
+                    { name: "MOMOTA ROY", webFileNo: "BGDDV56C3225" },
+                    { name: "DIGHI BISWAS", webFileNo: "BGDDV56C1625" }
+                ]
+            },
+            captcha: {
+                enabled: true,
+                clientKey: "CAP-923EF9B1103A2E23E1E8EF772B2147B57561DFFFBF3B27D41DB24283CF19EB5E",
+                siteKey: "6LdOCpAqAAAAAOLNB3Vwt_H7Nw4GGCAbdYm5Brsb",
+                websiteURL: "https://payment.ivacbd.com/"
+            }
+        };
+    }
 
-        // Application Information
-        application: {
-            highcom: "1",
-            webFileId: "BGDDV53D7A25",
-            ivacId: "17",
-            visaType: "13",
-            familyCount: "4", // Change this number to adjust family members
-            visitPurpose: "PURPOSE FOR BETTER TREATMENT"
-        },
-
-        // Personal Information
-        personal: {
-            fullName: "MD HARUN OR RASHID",
-            email: "sudiptta.sm@gmail.com", // 112233
-            phone: "01577155550",
-
-            // Family Members (will be automatically adjusted based on familyCount)
-            familyMembers: [
-                {
-                    name: "MD JOBAID MIAH",
-                    webFileNo: "BGDDV53D9425"
-                },
-                {
-                    name: "MUSA MIAH",
-                    webFileNo: "BGDDV50C6025"
-                },
-                {
-                    name: "MD MOTALEB HOSSAIN",
-                    webFileNo: "BGDDV50C9425"
-                },
-                {
-                    name: "RAKIB HALDER",
-                    webFileNo: "BGDDV53E3F25"
-                }
-            ]
-        },
-
-        // CAPTCHA Solver Configuration
-        captcha: {
-            enabled: true, // Set to false to disable auto-solving
-            clientKey: "CAP-923EF9B1103A2E23E1E8EF772B2147B57561DFFFBF3B27D41DB24283CF19EB5E",
-            siteKey: "6LdOCpAqAAAAAOLNB3Vwt_H7Nw4GGCAbdYm5Brsb",
-            websiteURL: "https://payment.ivacbd.com/"
-        }
-    };
-
+    const CONFIG = window.IVAC_CONFIG;
     // Only keep the configured number of family members
     CONFIG.personal.familyMembers = CONFIG.personal.familyMembers.slice(0, parseInt(CONFIG.application.familyCount));
 
