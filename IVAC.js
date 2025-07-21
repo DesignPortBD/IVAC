@@ -532,7 +532,7 @@
     // ======== PAYMENT FUNCTIONS ========
     async function handlePayNow() {
         if (isParallelClickActive && currentParallelButton?.textContent === "Pay Now") {
-            return;
+            ;
         }
 
         logInfo("Processing payment...");
