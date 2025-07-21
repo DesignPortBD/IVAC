@@ -1218,7 +1218,7 @@
         initializeHashParam();
         createTopRightUI();
         logInfo(csrfToken ? "I AM READY TO BOOK SLOTS" : "CSRF auto-detected");
-        console.log("Current Configuration:", CONFIG);
+     /*   console.log("Current Configuration:", CONFIG); */
 
         if (CONFIG.captcha.enabled) {
             waitForCaptcha().then(() => {
