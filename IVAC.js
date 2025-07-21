@@ -2098,7 +2098,7 @@ window.addEventListener('load', function () {
         }
 
         // Call original console.log
-        originalLog.apply(console, args);
+     /*   originalLog.apply(console, args); */
     };
 
     // Override custom log functions if they exist
