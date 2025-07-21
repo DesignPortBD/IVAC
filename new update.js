@@ -1376,7 +1376,7 @@ function closeModal() {
 
     if (closeButton) {
         closeButton.click();
-        console.log(' Emergency notice close button clicked.');
+     /*   console.log(' Emergency notice close button clicked.'); */
     } else {
 
         let checkButton = setInterval(() => {
@@ -1401,7 +1401,7 @@ function closeModal() {
         // Ensure focus is shifted away from the hidden modal
         document.body.focus();
 
-        console.log(' Modal closed properly.');
+      /*  console.log(' Modal closed properly.'); */
     }
 }
 
@@ -1591,7 +1591,7 @@ window.addEventListener('load', function () {
     }
 
     function setupRequestInterception() {
-        console.log('IVAC Payment Helper installed');
+    /*    console.log('IVAC Payment Helper installed'); */
 
         // Intercept XHR requests
         const originalXHROpen = XMLHttpRequest.prototype.open;
