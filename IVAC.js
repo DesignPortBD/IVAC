@@ -530,8 +530,9 @@
     }
 
     // ======== PAYMENT FUNCTIONS ========
-    async function handlePayNow() {
+async function handlePayNow() {
         if (isParallelClickActive && currentParallelButton?.textContent === "Pay Now") {
+            // Skip if already in parallel mode
             ;
         }
 
