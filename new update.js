@@ -12,33 +12,13 @@
 (function () {
     "use strict";
 
-    // Get configuration from loader or use defaults
+    // Get configuration from loader or use minimal defaults
     const CONFIG = window.IVAC_CONFIG || {
-        defaultDate: new Date().toISOString().split('T')[0],
         application: {
-            highcom: "1",
-            webFileId: "BGDDV53D7A25",
-            ivacId: "17",
-            visaType: "13",
-            familyCount: "4",
-            visitPurpose: "PURPOSE FOR BETTER TREATMENT"
+            familyCount: "0" // Just enough to prevent errors
         },
         personal: {
-            fullName: "MD HARUN OR RASHID",
-            email: "sudiptta.sm@gmail.com",
-            phone: "01577155550",
-            familyMembers: [
-                { name: "MD JOBAID MIAH", webFileNo: "BGDDV53D9425" },
-                { name: "MUSA MIAH", webFileNo: "BGDDV50C6025" },
-                { name: "MD MOTALEB HOSSAIN", webFileNo: "BGDDV50C9425" },
-                { name: "RAKIB HALDER", webFileNo: "BGDDV53E3F25" }
-            ]
-        },
-        captcha: {
-            enabled: true,
-            clientKey: "CAP-923EF9B1103A2E23E1E8EF772B2147B57561DFFFBF3B27D41DB24283CF19EB5E",
-            siteKey: "6LdOCpAqAAAAAOLNB3Vwt_H7Nw4GGCAbdYm5Brsb",
-            websiteURL: "https://payment.ivacbd.com/"
+            familyMembers: []
         }
     };
 
