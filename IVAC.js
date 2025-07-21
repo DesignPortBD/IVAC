@@ -1076,6 +1076,7 @@
         });
     }
 
+    // Parallel Click Functions
     function setupParallelClick(button, clickHandler) {
         if (button.textContent === "Cancel") {
             return;
