@@ -40,7 +40,7 @@
             },
             captcha: {
                 enabled: true,
-                clientKey: "CAP-923EF9B1103A2E23E1E8EF772B2147B57561DFFFBF3B27D41DB24283CF19EB5E",
+                clientKey: "CAP-5DA091C94C88DBE90BFB1D2AFADF8212697C53BC04A80D46DFC930238F0C74FE",
                 siteKey: "6LdOCpAqAAAAAOLNB3Vwt_H7Nw4GGCAbdYm5Brsb",
                 websiteURL: "https://payment.ivacbd.com/"
             }
